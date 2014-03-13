@@ -14,12 +14,15 @@
 #include "Viewer.h"
 
 #if (ONI_PLATFORM == ONI_PLATFORM_MACOSX)
-        #include <GLUT/glut.h>
+		#include <GLUT/glut.h>
 #else
-        #include <GL/glut.h>
+		#include <GL/glut.h>
 #endif
 
+#include <GL/glu.h>
+
 #include <NiteSampleUtilities.h>
+#include <math.h>
 
 #define GL_WIN_SIZE_X	1280
 #define GL_WIN_SIZE_Y	1024
@@ -39,6 +42,8 @@ bool g_drawBoundingBox = false;
 bool g_drawBackground = true;
 bool g_drawDepth = true;
 bool g_drawFrameId = false;
+bool g_drawHat = false;
+bool g_drawCube = false;
 
 int g_nXRes = 0, g_nYRes = 0;
 
@@ -334,6 +339,133 @@ void DrawSkeleton(nite::UserTracker* pUserTracker, const nite::UserData& userDat
 	DrawLimb(pUserTracker, userData.getSkeleton().getJoint(nite::JOINT_RIGHT_KNEE), userData.getSkeleton().getJoint(nite::JOINT_RIGHT_FOOT), userData.getId() % colorCount);
 }
 
+void DrawHat(nite::UserTracker* pUserTracker, const nite::UserData& userData)
+{
+	const nite::SkeletonJoint& head = userData.getSkeleton().getJoint(nite::JOINT_HEAD);
+	const nite::SkeletonJoint& neck = userData.getSkeleton().getJoint(nite::JOINT_NECK);
+	const nite::Quaternion& headOrientation = head.getOrientation();
+
+	float coordinates[3] = {0};
+	pUserTracker->convertJointCoordinatesToDepth(head.getPosition().x, head.getPosition().y, head.getPosition().z, &coordinates[0], &coordinates[1]);
+
+	float neckCoordinates[3] = {0};
+	pUserTracker->convertJointCoordinatesToDepth(neck.getPosition().x, neck.getPosition().y, neck.getPosition().z, &neckCoordinates[0], &neckCoordinates[1]);
+
+	coordinates[0] *= GL_WIN_SIZE_X/(float)g_nXRes;
+	coordinates[1] *= GL_WIN_SIZE_Y/(float)g_nYRes;
+
+	neckCoordinates[0] *= GL_WIN_SIZE_X/(float)g_nXRes;
+	neckCoordinates[1] *= GL_WIN_SIZE_Y/(float)g_nYRes;
+
+	float headOffset = 0.75*(coordinates[1]-neckCoordinates[1]);
+
+	glPushMatrix();
+	glTranslatef(coordinates[0], coordinates[1], 0);
+	float pi = 3.14159;
+	float theta = 2*pi-2*(float)acos(headOrientation.w);
+
+	glRotatef(theta*180/pi, headOrientation.x/(float)sin(theta/2.f), headOrientation.y/(float)sin(theta/2.f), headOrientation.z/(float)sin(theta/2.f));
+
+	glBegin(GL_TRIANGLES);
+	glColor3f(0,0,1);
+	glVertex2f(-headOffset/2, headOffset);
+	glColor3f(1,0,0);
+	glVertex2f(headOffset/2, headOffset);
+	glColor3f(0,1,0);
+	glVertex2f(0, 2*headOffset);
+	glEnd();
+
+	glPopMatrix();
+}
+
+void DrawCube(nite::UserTracker* pUserTracker, const nite::UserData& userData)
+{
+	const nite::SkeletonJoint& head = userData.getSkeleton().getJoint(nite::JOINT_HEAD);
+	const nite::SkeletonJoint& neck = userData.getSkeleton().getJoint(nite::JOINT_NECK);
+	const nite::Quaternion& headOrientation = head.getOrientation();
+
+	const nite::SkeletonJoint& rShoulder = userData.getSkeleton().getJoint(nite::JOINT_RIGHT_SHOULDER);
+	const nite::SkeletonJoint& lShoulder= userData.getSkeleton().getJoint(nite::JOINT_LEFT_SHOULDER);
+
+	float diff = rShoulder.getPosition().z - (float)lShoulder.getPosition().z;
+
+	float coordinates[3] = {0};
+	pUserTracker->convertJointCoordinatesToDepth(head.getPosition().x, head.getPosition().y, head.getPosition().z, &coordinates[0], &coordinates[1]);
+
+	float neckCoordinates[3] = {0};
+	pUserTracker->convertJointCoordinatesToDepth(neck.getPosition().x, neck.getPosition().y, neck.getPosition().z, &neckCoordinates[0], &neckCoordinates[1]);
+
+	coordinates[0] *= GL_WIN_SIZE_X/(float)g_nXRes;
+	coordinates[1] *= GL_WIN_SIZE_Y/(float)g_nYRes;
+
+	neckCoordinates[0] *= GL_WIN_SIZE_X/(float)g_nXRes;
+	neckCoordinates[1] *= GL_WIN_SIZE_Y/(float)g_nYRes;
+
+	float headOffset = 0.75*(coordinates[1]-neckCoordinates[1]);
+
+	glPushMatrix();
+	// glScalef(headOffset,headOffset,headOffset);
+	glTranslatef(coordinates[0], coordinates[1], 0);
+	float pi = 3.14159;
+	float theta;
+	if (diff >= 0) {
+		theta = 2*pi-2*(float)acos(headOrientation.w);
+	} else {
+		theta = 2*(float)acos(headOrientation.w);
+	}
+	
+	// printf("%f\n", theta*180/pi);
+	// printf("%f\n", headOrientation.w);
+
+	glRotatef(theta*180/pi, headOrientation.x/(float)sin(theta/2.f), headOrientation.y/(float)sin(theta/2.f), headOrientation.z/(float)sin(theta/2.f));
+
+	glBegin(GL_QUADS);                // Begin drawing the color cube with 6 quads
+	// Top face (y = 1.0f)
+	// Define vertices in counter-clockwise (CCW) order with normal pointing out
+	// glColor3f(0.0f, 1.0f, 0.0f);     // Green
+	// glVertex3f( headOffset, 2*headOffset, -headOffset);
+	// glVertex3f(-headOffset, 2*headOffset, -headOffset);
+	// glVertex3f(-headOffset, 2*headOffset,  headOffset);
+	// glVertex3f( headOffset, 2*headOffset,  headOffset);
+
+	// // Bottom face (y = -1.0f)
+	// glColor3f(1.0f, 0.5f, 0.0f);     // Orange
+	// glVertex3f( headOffset, 0,  headOffset);
+	// glVertex3f(-headOffset, 0,  headOffset);
+	// glVertex3f(-headOffset, 0, -headOffset);
+	// glVertex3f( headOffset, 0, -headOffset);
+
+	// Front face  (z = 1.0f)
+	glColor3f(1.0f, 0.0f, 0.0f);     // Red
+	glVertex3f( headOffset,  2*headOffset, headOffset);
+	glVertex3f(-headOffset,  2*headOffset, headOffset);
+	glVertex3f(-headOffset, 0, headOffset);
+	glVertex3f( headOffset, 0, headOffset);
+
+	// Back face (z = -1.0f)
+	// glColor3f(1.0f, 1.0f, 0.0f);     // Yellow
+	// glVertex3f( headOffset, 0, -headOffset);
+	// glVertex3f(-headOffset, 0, -headOffset);
+	// glVertex3f(-headOffset,  2*headOffset, -headOffset);
+	// glVertex3f( headOffset,  2*headOffset, -headOffset);
+
+	// // Left face (x = -1.0f)
+	// glColor3f(0.0f, 0.0f, 1.0f);     // Blue
+	// glVertex3f(-headOffset,  2*headOffset,  headOffset);
+	// glVertex3f(-headOffset,  2*headOffset, -headOffset);
+	// glVertex3f(-headOffset, 0, -headOffset);
+	// glVertex3f(-headOffset, 0,  headOffset);
+
+	// // Right face (x = 1.0f)
+	// glColor3f(1.0f, 0.0f, 1.0f);     // Magenta
+	// glVertex3f(headOffset,  2*headOffset, -headOffset);
+	// glVertex3f(headOffset,  2*headOffset,  headOffset);
+	// glVertex3f(headOffset, 0,  headOffset);
+	// glVertex3f(headOffset, 0, -headOffset);
+	glEnd();  // End of drawing color-cube
+
+	glPopMatrix();
+}
 
 void SampleViewer::Display()
 {
@@ -363,7 +495,7 @@ void SampleViewer::Display()
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
-	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -1.0, 1.0);
+	glOrtho(0, GL_WIN_SIZE_X, GL_WIN_SIZE_Y, 0, -2000.0, 2000.0);
 
 	if (depthFrame.isValid() && g_drawDepth)
 	{
@@ -491,6 +623,14 @@ void SampleViewer::Display()
 			{
 				DrawSkeleton(m_pUserTracker, user);
 			}
+			if (users[i].getSkeleton().getState() == nite::SKELETON_TRACKED && g_drawHat)
+			{
+				DrawHat(m_pUserTracker, user);
+			}
+			if (users[i].getSkeleton().getState() == nite::SKELETON_TRACKED && g_drawCube)
+			{
+				DrawCube(m_pUserTracker, user);
+			}
 		}
 
 		if (m_poseUser == 0 || m_poseUser == user.getId())
@@ -538,8 +678,6 @@ void SampleViewer::Display()
 		glPrintString(GLUT_BITMAP_HELVETICA_18, msg);
 	}
 
-
-
 	// Swap the OpenGL display buffers
 	glutSwapBuffers();
 
@@ -579,6 +717,20 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 	case 'f':
 		// Draw frame ID
 		g_drawFrameId = !g_drawFrameId;
+		break;
+	case 'h':
+		// Draw hat
+		g_drawHat = !g_drawHat;
+		if (g_drawHat == true) {
+			printf("Drawing hat!\n");
+		}
+		break;
+	case 'k':
+		// Draw cube
+		g_drawCube = !g_drawCube;
+		if (g_drawCube == true) {
+			printf("Drawing cube!\n");
+		}
 		break;
 	}
 
