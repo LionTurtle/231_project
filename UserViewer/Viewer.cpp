@@ -44,6 +44,7 @@ bool g_drawDepth = true;
 bool g_drawFrameId = false;
 bool g_drawHat = false;
 bool g_drawCube = false;
+bool g_drawCubeFront = false;
 
 int g_nXRes = 0, g_nYRes = 0;
 
@@ -358,7 +359,7 @@ void DrawHat(nite::UserTracker* pUserTracker, const nite::UserData& userData)
 	neckCoordinates[0] *= GL_WIN_SIZE_X/(float)g_nXRes;
 	neckCoordinates[1] *= GL_WIN_SIZE_Y/(float)g_nYRes;
 
-	float headOffset = 0.75*(coordinates[1]-neckCoordinates[1]);
+	float headOffset = 0.5*(coordinates[1]-neckCoordinates[1]);
 
 	glPushMatrix();
 	glTranslatef(coordinates[0], coordinates[1], 0);
@@ -369,12 +370,69 @@ void DrawHat(nite::UserTracker* pUserTracker, const nite::UserData& userData)
 
 	glBegin(GL_TRIANGLES);
 	glColor3f(0,0,1);
-	glVertex2f(-headOffset/2, headOffset);
+	glVertex2f(-headOffset/1.5, headOffset);
 	glColor3f(1,0,0);
-	glVertex2f(headOffset/2, headOffset);
+	glVertex2f(headOffset/1.5, headOffset);
 	glColor3f(0,1,0);
-	glVertex2f(0, 2*headOffset);
+	glVertex2f(0, 2.5*headOffset);
 	glEnd();
+
+	glPopMatrix();
+}
+
+void DrawCubeFront(nite::UserTracker* pUserTracker, const nite::UserData& userData)
+{
+	const nite::SkeletonJoint& head = userData.getSkeleton().getJoint(nite::JOINT_HEAD);
+	const nite::SkeletonJoint& neck = userData.getSkeleton().getJoint(nite::JOINT_NECK);
+	const nite::Quaternion& headOrientation = head.getOrientation();
+
+	const nite::SkeletonJoint& rShoulder = userData.getSkeleton().getJoint(nite::JOINT_RIGHT_SHOULDER);
+	const nite::SkeletonJoint& lShoulder= userData.getSkeleton().getJoint(nite::JOINT_LEFT_SHOULDER);
+
+	float diff = rShoulder.getPosition().z - (float)lShoulder.getPosition().z;
+
+	float coordinates[3] = {0};
+	pUserTracker->convertJointCoordinatesToDepth(head.getPosition().x, head.getPosition().y, head.getPosition().z, &coordinates[0], &coordinates[1]);
+
+	float neckCoordinates[3] = {0};
+	pUserTracker->convertJointCoordinatesToDepth(neck.getPosition().x, neck.getPosition().y, neck.getPosition().z, &neckCoordinates[0], &neckCoordinates[1]);
+
+	coordinates[0] *= GL_WIN_SIZE_X/(float)g_nXRes;
+	coordinates[1] *= GL_WIN_SIZE_Y/(float)g_nYRes;
+
+	neckCoordinates[0] *= GL_WIN_SIZE_X/(float)g_nXRes;
+	neckCoordinates[1] *= GL_WIN_SIZE_Y/(float)g_nYRes;
+
+	float headOffset = 0.75*(coordinates[1]-neckCoordinates[1]);
+
+	glPushMatrix();
+	glTranslatef(coordinates[0], coordinates[1], 0);
+	float pi = 3.14159;
+	float theta;
+	if (diff >= 0) {
+		theta = 2*pi-2*(float)acos(headOrientation.w);
+	} else {
+		theta = 2*(float)acos(headOrientation.w);
+	}
+	
+	// printf("%f\n", theta*180/pi);
+	// printf("%f\n", headOrientation.w);
+
+	glRotatef(theta*180/pi, headOrientation.x/(float)sin(theta/2.f), headOrientation.y/(float)sin(theta/2.f), headOrientation.z/(float)sin(theta/2.f));
+
+	glBegin(GL_QUADS);                // Begin drawing the color cube with 6 quads
+
+	// Front face  (z = 1.0f)
+	glColor3f(1.0f, 0.0f, 0.0f);     // Red
+	glVertex3f( headOffset,  2*headOffset, headOffset);
+	glColor3f(0, 1, 0);
+	glVertex3f(-headOffset,  2*headOffset, headOffset);
+	glColor3f(0, 1, 1);
+	glVertex3f(-headOffset, 0, headOffset);
+	glColor3f(0, 0, 1);
+	glVertex3f( headOffset, 0, headOffset);
+
+	glEnd();  // End of drawing color-cube
 
 	glPopMatrix();
 }
@@ -405,7 +463,6 @@ void DrawCube(nite::UserTracker* pUserTracker, const nite::UserData& userData)
 	float headOffset = 0.75*(coordinates[1]-neckCoordinates[1]);
 
 	glPushMatrix();
-	// glScalef(headOffset,headOffset,headOffset);
 	glTranslatef(coordinates[0], coordinates[1], 0);
 	float pi = 3.14159;
 	float theta;
@@ -415,7 +472,7 @@ void DrawCube(nite::UserTracker* pUserTracker, const nite::UserData& userData)
 		theta = 2*(float)acos(headOrientation.w);
 	}
 	
-	printf("%f\n", theta*180/pi);
+	// printf("%f\n", theta*180/pi);
 	// printf("%f\n", headOrientation.w);
 
 	glRotatef(theta*180/pi, headOrientation.x/(float)sin(theta/2.f), headOrientation.y/(float)sin(theta/2.f), headOrientation.z/(float)sin(theta/2.f));
@@ -423,18 +480,18 @@ void DrawCube(nite::UserTracker* pUserTracker, const nite::UserData& userData)
 	glBegin(GL_QUADS);                // Begin drawing the color cube with 6 quads
 	// Top face (y = 1.0f)
 	// Define vertices in counter-clockwise (CCW) order with normal pointing out
-	// glColor3f(0.0f, 1.0f, 0.0f);     // Green
-	// glVertex3f( headOffset, 2*headOffset, -headOffset);
-	// glVertex3f(-headOffset, 2*headOffset, -headOffset);
-	// glVertex3f(-headOffset, 2*headOffset,  headOffset);
-	// glVertex3f( headOffset, 2*headOffset,  headOffset);
+	glColor3f(0.0f, 1.0f, 0.0f);     // Green
+	glVertex3f( headOffset, 2*headOffset, -headOffset);
+	glVertex3f(-headOffset, 2*headOffset, -headOffset);
+	glVertex3f(-headOffset, 2*headOffset,  headOffset);
+	glVertex3f( headOffset, 2*headOffset,  headOffset);
 
-	// // Bottom face (y = -1.0f)
-	// glColor3f(1.0f, 0.5f, 0.0f);     // Orange
-	// glVertex3f( headOffset, 0,  headOffset);
-	// glVertex3f(-headOffset, 0,  headOffset);
-	// glVertex3f(-headOffset, 0, -headOffset);
-	// glVertex3f( headOffset, 0, -headOffset);
+	// Bottom face (y = -1.0f)
+	glColor3f(1.0f, 0.5f, 0.0f);     // Orange
+	glVertex3f( headOffset, 0,  headOffset);
+	glVertex3f(-headOffset, 0,  headOffset);
+	glVertex3f(-headOffset, 0, -headOffset);
+	glVertex3f( headOffset, 0, -headOffset);
 
 	// Front face  (z = 1.0f)
 	glColor3f(1.0f, 0.0f, 0.0f);     // Red
@@ -444,25 +501,25 @@ void DrawCube(nite::UserTracker* pUserTracker, const nite::UserData& userData)
 	glVertex3f( headOffset, 0, headOffset);
 
 	// Back face (z = -1.0f)
-	// glColor3f(1.0f, 1.0f, 0.0f);     // Yellow
-	// glVertex3f( headOffset, 0, -headOffset);
-	// glVertex3f(-headOffset, 0, -headOffset);
-	// glVertex3f(-headOffset,  2*headOffset, -headOffset);
-	// glVertex3f( headOffset,  2*headOffset, -headOffset);
+	glColor3f(1.0f, 1.0f, 0.0f);     // Yellow
+	glVertex3f( headOffset, 0, -headOffset);
+	glVertex3f(-headOffset, 0, -headOffset);
+	glVertex3f(-headOffset,  2*headOffset, -headOffset);
+	glVertex3f( headOffset,  2*headOffset, -headOffset);
 
-	// // Left face (x = -1.0f)
-	// glColor3f(0.0f, 0.0f, 1.0f);     // Blue
-	// glVertex3f(-headOffset,  2*headOffset,  headOffset);
-	// glVertex3f(-headOffset,  2*headOffset, -headOffset);
-	// glVertex3f(-headOffset, 0, -headOffset);
-	// glVertex3f(-headOffset, 0,  headOffset);
+	// Left face (x = -1.0f)
+	glColor3f(0.0f, 0.0f, 1.0f);     // Blue
+	glVertex3f(-headOffset,  2*headOffset,  headOffset);
+	glVertex3f(-headOffset,  2*headOffset, -headOffset);
+	glVertex3f(-headOffset, 0, -headOffset);
+	glVertex3f(-headOffset, 0,  headOffset);
 
-	// // Right face (x = 1.0f)
-	// glColor3f(1.0f, 0.0f, 1.0f);     // Magenta
-	// glVertex3f(headOffset,  2*headOffset, -headOffset);
-	// glVertex3f(headOffset,  2*headOffset,  headOffset);
-	// glVertex3f(headOffset, 0,  headOffset);
-	// glVertex3f(headOffset, 0, -headOffset);
+	// Right face (x = 1.0f)
+	glColor3f(1.0f, 0.0f, 1.0f);     // Magenta
+	glVertex3f(headOffset,  2*headOffset, -headOffset);
+	glVertex3f(headOffset,  2*headOffset,  headOffset);
+	glVertex3f(headOffset, 0,  headOffset);
+	glVertex3f(headOffset, 0, -headOffset);
 	glEnd();  // End of drawing color-cube
 
 	glPopMatrix();
@@ -655,6 +712,10 @@ void SampleViewer::Display()
 			{
 				DrawCube(m_pUserTracker, user);
 			}
+			if (users[i].getSkeleton().getState() == nite::SKELETON_TRACKED && g_drawCubeFront)
+			{
+				DrawCubeFront(m_pUserTracker, user);
+			}
 		}
 
 		if (m_poseUser == 0 || m_poseUser == user.getId())
@@ -754,6 +815,13 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 		g_drawCube = !g_drawCube;
 		if (g_drawCube == true) {
 			printf("Drawing cube!\n");
+		}
+		break;
+	case 'q':
+		// Draw cube
+		g_drawCubeFront = !g_drawCubeFront;
+		if (g_drawCubeFront == true) {
+			printf("Drawing cube front!\n");
 		}
 		break;
 	case 'i':
