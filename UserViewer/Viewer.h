@@ -12,10 +12,17 @@
 
 #define MAX_DEPTH 10000
 
+enum DisplayModes
+{
+	DISPLAY_MODE_OVERLAY,
+	DISPLAY_MODE_DEPTH,
+	DISPLAY_MODE_IMAGE
+};
+
 class SampleViewer
 {
 public:
-	SampleViewer(const char* strSampleName);
+	SampleViewer(const char* strSampleName, openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color);
 	virtual ~SampleViewer();
 
 	virtual openni::Status Init(int argc, char **argv);
@@ -32,6 +39,10 @@ protected:
 
 	void Finalize();
 
+	openni::VideoFrameRef		m_colorFrame;
+
+	
+
 private:
 	SampleViewer(const SampleViewer&);
 	SampleViewer& operator=(SampleViewer&);
@@ -47,11 +58,15 @@ private:
 	unsigned int		m_nTexMapX;
 	unsigned int		m_nTexMapY;
 
-	openni::Device		m_device;
 	nite::UserTracker* m_pUserTracker;
 
 	nite::UserId m_poseUser;
 	uint64_t m_poseTime;
+
+	openni::Device&			m_device;
+	openni::VideoStream&			m_colorStream;
+
+	DisplayModes		m_eViewState;
 };
 
 

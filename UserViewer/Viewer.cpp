@@ -63,11 +63,12 @@ void SampleViewer::glutKeyboard(unsigned char key, int x, int y)
 	SampleViewer::ms_self->OnKey(key, x, y);
 }
 
-SampleViewer::SampleViewer(const char* strSampleName) : m_poseUser(0)
+SampleViewer::SampleViewer(const char* strSampleName, openni::Device& device, openni::VideoStream& depth, openni::VideoStream& color) : m_poseUser(0), m_device(device), m_colorStream(color)
 {
 	ms_self = this;
 	strncpy(m_strSampleName, strSampleName, ONI_MAX_STR);
 	m_pUserTracker = new nite::UserTracker;
+	m_eViewState = DISPLAY_MODE_DEPTH;
 }
 SampleViewer::~SampleViewer()
 {
@@ -414,7 +415,7 @@ void DrawCube(nite::UserTracker* pUserTracker, const nite::UserData& userData)
 		theta = 2*(float)acos(headOrientation.w);
 	}
 	
-	// printf("%f\n", theta*180/pi);
+	printf("%f\n", theta*180/pi);
 	// printf("%f\n", headOrientation.w);
 
 	glRotatef(theta*180/pi, headOrientation.x/(float)sin(theta/2.f), headOrientation.y/(float)sin(theta/2.f), headOrientation.z/(float)sin(theta/2.f));
@@ -479,6 +480,7 @@ void SampleViewer::Display()
 	}
 
 	depthFrame = userTrackerFrame.getDepthFrame();
+	m_colorStream.readFrame(&m_colorFrame);
 
 	if (m_pTexMap == NULL)
 	{
@@ -503,6 +505,28 @@ void SampleViewer::Display()
 	}
 
 	memset(m_pTexMap, 0, m_nTexMapX*m_nTexMapY*sizeof(openni::RGB888Pixel));
+
+	// check if we need to draw image frame to texture
+	if (m_eViewState == DISPLAY_MODE_IMAGE && m_colorFrame.isValid())
+	{
+		const openni::RGB888Pixel* pImageRow = (const openni::RGB888Pixel*)m_colorFrame.getData();
+		openni::RGB888Pixel* pTexRow = m_pTexMap + m_colorFrame.getCropOriginY() * m_nTexMapX;
+		int rowSize = m_colorFrame.getStrideInBytes() / sizeof(openni::RGB888Pixel);
+
+		for (int y = 0; y < m_colorFrame.getHeight(); ++y)
+		{
+			const openni::RGB888Pixel* pImage = pImageRow;
+			openni::RGB888Pixel* pTex = pTexRow + m_colorFrame.getCropOriginX();
+
+			for (int x = 0; x < m_colorFrame.getWidth(); ++x, ++pImage, ++pTex)
+			{
+				*pTex = *pImage;
+			}
+
+			pImageRow += rowSize;
+			pTexRow += m_nTexMapX;
+		}
+	}
 
 	float factor[3] = {1, 1, 1};
 	// check if we need to draw depth frame to texture
@@ -732,8 +756,15 @@ void SampleViewer::OnKey(unsigned char key, int /*x*/, int /*y*/)
 			printf("Drawing cube!\n");
 		}
 		break;
+	case 'i':
+		// IMAGE MODE!
+		if (m_eViewState == DISPLAY_MODE_IMAGE) {
+			m_eViewState = DISPLAY_MODE_DEPTH;
+		} else {
+			m_eViewState = DISPLAY_MODE_IMAGE;
+		}
+		break;
 	}
-
 }
 
 openni::Status SampleViewer::InitOpenGL(int argc, char **argv)
